@@ -57,4 +57,8 @@ dependencies {
     compile 'com.squareup.okhttp3:logging-interceptor:3.5.0'
 
     compile 'com.github.akarnokd:rxjava2-interop:0.8.1'
+
+    compile 'com.pushtorefresh.storio:sqlite:1.12.1'
+    compile 'com.pushtorefresh.storio:content-resolver-annotations:1.12.1'
+    annotationProcessor 'com.pushtorefresh.storio:sqlite-annotations-processor:1.12.1'
 }

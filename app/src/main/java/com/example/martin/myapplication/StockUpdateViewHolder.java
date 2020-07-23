@@ -1,6 +1,5 @@
 package com.example.martin.myapplication;
 
-import android.icu.math.BigDecimal;
 import android.icu.text.DecimalFormat;
 import android.icu.text.NumberFormat;
 import android.support.v7.widget.RecyclerView;
@@ -8,6 +7,7 @@ import android.text.format.DateFormat;
 import android.view.View;
 import android.widget.TextView;
 
+import java.math.BigDecimal;
 import java.util.Date;
 
 import butterknife.BindView;

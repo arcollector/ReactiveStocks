@@ -9,6 +9,9 @@ import android.widget.TextView;
 
 import com.example.martin.myapplication.alphavantage.AlphaVantageServiceFactory;
 import com.example.martin.myapplication.alphavantage.AlphaVintageService;
+import com.example.martin.myapplication.alphavantage.json.AlphaVantageGlobalQuote;
+import com.example.martin.myapplication.alphavantage.json.AlphaVantageQuote;
+import com.example.martin.myapplication.storio.StorIOFactory;
 
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -16,9 +19,11 @@ import java.util.concurrent.TimeUnit;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import io.reactivex.Observable;
+import io.reactivex.ObservableSource;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
@@ -110,6 +115,50 @@ public class MainActivity extends AppCompatActivity {
 
         String apiKey = "U6EHDPZAEKU4H1QH";
 
+        BiFunction<Long, String, Observable<AlphaVantageGlobalQuote>> getTickerData =
+            (integer, s) -> alphaVintageService
+                .get(s, apiKey)
+                .toObservable();
+
+        Observable.concat(
+            Observable.zip(
+                    Observable.interval(0, 1, TimeUnit.MINUTES),
+                    Observable.just("GOOG"),
+                    getTickerData
+            ),
+
+            Observable.zip(
+                    Observable.interval(0, 1, TimeUnit.MINUTES),
+                    Observable.just("TWTR"),
+                    getTickerData
+            ),
+
+            Observable.zip(
+                    Observable.interval(0, 1, TimeUnit.MINUTES),
+                    Observable.just("AAPL"),
+                    getTickerData
+            )
+        )
+                .subscribeOn(Schedulers.io())
+                .map(r -> r.blockingSingle().getQuote())
+                .map(StockUpdate::create)
+                .doOnNext(this::saveStockUpdate)
+                .observeOn(AndroidSchedulers.mainThread())
+                // uncomment this to test errors
+                /*.doOnNext(r -> {
+                    throw new RuntimeException();
+                })*/
+                .subscribe(
+                    stockUpdate -> {
+                        /*
+                        Log.d(TAG, "New update" + stockUpdate.getStockSymbol());
+                        stockDataAdapter.add(stockUpdate);
+                        */
+                    }, throwable -> {
+                        Log.d(TAG, "error");
+                        Log.d(TAG, throwable.toString());
+                    });
+/*
         Disposable google = Observable.interval(0, 1, TimeUnit.MINUTES)
                 .flatMap(
                         i -> alphaVintageService.get("GOOG", apiKey).toObservable()
@@ -117,7 +166,8 @@ public class MainActivity extends AppCompatActivity {
                 .subscribeOn(Schedulers.io())
                 .map(r -> Arrays.asList(r.getQuote()))
                 .flatMap(Observable::fromIterable)
-                .map(r -> StockUpdate.create(r))
+                .map(StockUpdate::create)
+                .doOnNext(this::saveStockUpdate)
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(stockUpdate -> {
                     Log.d(TAG, "New update" + stockUpdate.getStockSymbol());
@@ -152,7 +202,7 @@ public class MainActivity extends AppCompatActivity {
                     Log.d(TAG, "New update" + stockUpdate.getStockSymbol());
                     stockDataAdapter.add(stockUpdate);
                 });
-
+*/
         /*
         Observable.just(
                 new StockUpdate("GOOGLE", 12.43, new Date()),
@@ -165,7 +215,21 @@ public class MainActivity extends AppCompatActivity {
         */
     }
 
+    private void log(String tag, String text) {
+        Log.d(tag, text);
+    }
+
     private void log(String text) {
         Log.d(TAG, text);
+    }
+
+    private void saveStockUpdate(StockUpdate stockUpdate) {
+        log("saveStockUpdate", stockUpdate.getStockSymbol());
+        StorIOFactory.get(this)
+                .put()
+                .object(stockUpdate)
+                .prepare()
+                .asRxSingle()
+                .subscribe();
     }
 }
