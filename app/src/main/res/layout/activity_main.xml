@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/activity_main"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="6dp"
+    android:orientation="vertical"
     tools:context="com.example.martin.myapplication.MainActivity">
 
     <TextView
@@ -18,6 +19,7 @@
         android:id="@+id/stock_updates_recycler_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@id/hello_world_salute" />
+        android:layout_below="@id/hello_world_salute"
+    />
 
-</android.support.constraint.ConstraintLayout>
+</LinearLayout>
