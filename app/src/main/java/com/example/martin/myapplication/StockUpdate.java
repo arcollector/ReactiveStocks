@@ -2,6 +2,9 @@ package com.example.martin.myapplication;
 
 import java.io.Serializable;
 import android.icu.math.BigDecimal;
+
+import com.example.martin.myapplication.alphavantage.json.AlphaVantageQuote;
+
 import java.util.Date;
 
 /**
@@ -14,9 +17,9 @@ public class StockUpdate implements Serializable {
     private final BigDecimal price;
     private final Date date;
 
-    StockUpdate(String stockSymbol, double price, Date date) {
+    StockUpdate(String stockSymbol, BigDecimal price, Date date) {
         this.stockSymbol = stockSymbol;
-        this.price = new BigDecimal(price);
+        this.price = price;
         this.date = date;
     }
 
@@ -30,6 +33,10 @@ public class StockUpdate implements Serializable {
 
     public Date getDate() {
         return date;
+    }
+
+    public static StockUpdate create(AlphaVantageQuote r) {
+        return new StockUpdate(r.getSymbol(), new BigDecimal(r.getLastTradePriceOnly()), new Date());
     }
 
 }

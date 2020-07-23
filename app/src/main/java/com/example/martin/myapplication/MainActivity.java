@@ -7,14 +7,21 @@ import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.widget.TextView;
 
-import java.util.Date;
+import com.example.martin.myapplication.alphavantage.AlphaVantageServiceFactory;
+import com.example.martin.myapplication.alphavantage.AlphaVintageService;
+
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import io.reactivex.Observable;
+import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.annotations.NonNull;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -88,8 +95,6 @@ public class MainActivity extends AppCompatActivity {
 
         ButterKnife.bind(this);
 
-        demo();
-
         recycleView.setHasFixedSize(true);
 
         layoutManager = new LinearLayoutManager(this);
@@ -101,6 +106,54 @@ public class MainActivity extends AppCompatActivity {
         Observable.just("Please use this app responsibly!")
                 .subscribe(s -> helloText.setText(s));
 
+        AlphaVintageService alphaVintageService = new AlphaVantageServiceFactory().create();
+
+        String apiKey = "U6EHDPZAEKU4H1QH";
+
+        Disposable google = Observable.interval(0, 1, TimeUnit.MINUTES)
+                .flatMap(
+                        i -> alphaVintageService.get("GOOG", apiKey).toObservable()
+                )
+                .subscribeOn(Schedulers.io())
+                .map(r -> Arrays.asList(r.getQuote()))
+                .flatMap(Observable::fromIterable)
+                .map(r -> StockUpdate.create(r))
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(stockUpdate -> {
+                    Log.d(TAG, "New update" + stockUpdate.getStockSymbol());
+                    stockDataAdapter.add(stockUpdate);
+                });
+
+        Disposable appl = Observable.interval(0, 1, TimeUnit.MINUTES)
+                .flatMap(
+                        i -> alphaVintageService.get("AAPL", apiKey)
+                                .toObservable()
+                )
+                .subscribeOn(Schedulers.io())
+                .map(r -> Arrays.asList(r.getQuote()))
+                .flatMap(Observable::fromIterable)
+                .map(r -> StockUpdate.create(r))
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(stockUpdate -> {
+                    Log.d(TAG, "New update" + stockUpdate.getStockSymbol());
+                    stockDataAdapter.add(stockUpdate);
+                });
+
+        Disposable twtr = Observable.interval(0, 1, TimeUnit.MINUTES)
+                .flatMap(
+                        i -> alphaVintageService.get("TWTR", apiKey).toObservable()
+                )
+                .subscribeOn(Schedulers.io())
+                .map(r -> Arrays.asList(r.getQuote()))
+                .flatMap(Observable::fromIterable)
+                .map(r -> StockUpdate.create(r))
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(stockUpdate -> {
+                    Log.d(TAG, "New update" + stockUpdate.getStockSymbol());
+                    stockDataAdapter.add(stockUpdate);
+                });
+
+        /*
         Observable.just(
                 new StockUpdate("GOOGLE", 12.43, new Date()),
                 new StockUpdate("APPL", 645.1, new Date()),
@@ -109,5 +162,10 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "New update " + stockUpdate.getStockSymbol());
             stockDataAdapter.add(stockUpdate);
         });
+        */
+    }
+
+    private void log(String text) {
+        Log.d(TAG, text);
     }
 }
