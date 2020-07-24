@@ -18,7 +18,7 @@ public class StockUpdate implements Serializable {
     private final Date date;
     private Integer id;
 
-    StockUpdate(String stockSymbol, BigDecimal price, Date date) {
+    public StockUpdate(String stockSymbol, BigDecimal price, Date date) {
         this.stockSymbol = stockSymbol;
         this.price = price;
         this.date = date;

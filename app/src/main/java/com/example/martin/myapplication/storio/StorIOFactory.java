@@ -30,10 +30,10 @@ public class StorIOFactory {
         INSTANCE = DefaultStorIOSQLite.builder()
                 .sqliteOpenHelper(new StorIODbHelper(context))
                 .addTypeMapping(StockUpdate.class, SQLiteTypeMapping.<StockUpdate>builder()
-                .putResolver(new StockUpdatePutResolver())
-                .getResolver(createGetResolver())
-                .deleteResolver(createDeleteResolver())
-                .build())
+                    .putResolver(new StockUpdatePutResolver())
+                    .getResolver(new StockUpdateGetResolver())
+                    .deleteResolver(new StockUpdateDeleteResolver())
+                    .build())
                 .build();
 
         return INSTANCE;

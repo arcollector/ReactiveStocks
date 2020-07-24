@@ -5,19 +5,27 @@ import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.martin.myapplication.alphavantage.AlphaVantageServiceFactory;
 import com.example.martin.myapplication.alphavantage.AlphaVintageService;
 import com.example.martin.myapplication.alphavantage.json.AlphaVantageGlobalQuote;
 import com.example.martin.myapplication.alphavantage.json.AlphaVantageQuote;
+import com.example.martin.myapplication.storio.StockUpdateTable;
 import com.example.martin.myapplication.storio.StorIOFactory;
+import com.pushtorefresh.storio.sqlite.operations.get.PreparedGetListOfObjects;
+import com.pushtorefresh.storio.sqlite.operations.internal.RxJavaUtils;
+import com.pushtorefresh.storio.sqlite.queries.Query;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import hu.akarnokd.rxjava.interop.RxJavaInterop;
 import io.reactivex.Observable;
 import io.reactivex.ObservableSource;
 import io.reactivex.android.schedulers.AndroidSchedulers;
@@ -26,11 +34,15 @@ import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
+import io.reactivex.plugins.RxJavaPlugins;
 import io.reactivex.schedulers.Schedulers;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
+
+    @BindView(R.id.no_data_available)
+    TextView noDataAvailableView;
 
     @BindView(R.id.hello_world_salute)
     TextView helloText;
@@ -100,6 +112,8 @@ public class MainActivity extends AppCompatActivity {
 
         ButterKnife.bind(this);
 
+        RxJavaPlugins.setErrorHandler(ErrorHandler.get());
+
         recycleView.setHasFixedSize(true);
 
         layoutManager = new LinearLayoutManager(this);
@@ -139,10 +153,35 @@ public class MainActivity extends AppCompatActivity {
                     getTickerData
             )
         )
+                .flatMap(r ->
+                    Observable.<Observable<AlphaVantageGlobalQuote>>error(new RuntimeException("Crash"))
+                )
                 .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnError(error -> {
+                    log("doOnError", "error");
+                    Toast.makeText(this, "We couldn't reach internet - falling back to local data", Toast.LENGTH_SHORT)
+                            .show();
+                })
+                .observeOn(Schedulers.io())
                 .map(r -> r.blockingSingle().getQuote())
                 .map(StockUpdate::create)
                 .doOnNext(this::saveStockUpdate)
+                .onExceptionResumeNext(
+                    v2(StorIOFactory
+                        .get(this)
+                        .get()
+                        .listOfObjects(StockUpdate.class)
+                        .withQuery(Query.builder()
+                            .table(StockUpdateTable.TABLE)
+                            .orderBy("date DESC")
+                            .limit(50)
+                            .build())
+                        .prepare()
+                        .asRxObservable())
+                        .take(1)
+                        .flatMap(Observable::fromIterable)
+                )
                 .observeOn(AndroidSchedulers.mainThread())
                 // uncomment this to test errors
                 /*.doOnNext(r -> {
@@ -150,13 +189,15 @@ public class MainActivity extends AppCompatActivity {
                 })*/
                 .subscribe(
                     stockUpdate -> {
-                        /*
                         Log.d(TAG, "New update" + stockUpdate.getStockSymbol());
+                        noDataAvailableView.setVisibility(View.GONE);
                         stockDataAdapter.add(stockUpdate);
-                        */
                     }, throwable -> {
-                        Log.d(TAG, "error");
-                        Log.d(TAG, throwable.toString());
+                        if(stockDataAdapter.getItemCount() == 0) {
+                            noDataAvailableView.setVisibility(View.VISIBLE);
+                        }
+                        /*Log.d(TAG, "error");
+                        Log.d(TAG, throwable.toString());*/
                     });
 /*
         Disposable google = Observable.interval(0, 1, TimeUnit.MINUTES)
@@ -213,6 +254,10 @@ public class MainActivity extends AppCompatActivity {
             stockDataAdapter.add(stockUpdate);
         });
         */
+    }
+
+    private static <T> Observable<T> v2(rx.Observable<T> source) {
+        return RxJavaInterop.toV2Observable(source);
     }
 
     private void log(String tag, String text) {
