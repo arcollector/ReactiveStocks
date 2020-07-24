@@ -13,6 +13,10 @@ import com.pushtorefresh.storio.sqlite.operations.delete.DeleteResolver;
 import com.pushtorefresh.storio.sqlite.operations.get.DefaultGetResolver;
 import com.pushtorefresh.storio.sqlite.operations.get.GetResolver;
 import com.pushtorefresh.storio.sqlite.queries.DeleteQuery;
+import com.pushtorefresh.storio.sqlite.queries.Query;
+
+import hu.akarnokd.rxjava.interop.RxJavaInterop;
+import io.reactivex.Observable;
 
 /**
  * Created by martin on 7/23/20.
@@ -57,5 +61,25 @@ public class StorIOFactory {
                 return null;
             }
         };
+    }
+
+    public static Observable<StockUpdate> createLocalDbStockUpdateRetrievalObservable(Context contenxt) {
+        return v2(StorIOFactory
+                .get(contenxt)
+                .get()
+                .listOfObjects(StockUpdate.class)
+                .withQuery(Query.builder()
+                        .table(StockUpdateTable.TABLE)
+                        .orderBy("date DESC")
+                        .limit(50)
+                        .build())
+                .prepare()
+                .asRxObservable())
+                .take(1)
+                .flatMap(Observable::fromIterable);
+    }
+
+    private static <T> Observable<T> v2(rx.Observable<T> source) {
+        return RxJavaInterop.toV2Observable(source);
     }
 }

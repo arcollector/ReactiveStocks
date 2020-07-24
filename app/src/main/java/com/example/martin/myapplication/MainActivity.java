@@ -13,20 +13,19 @@ import android.widget.Toast;
 import com.example.martin.myapplication.alphavantage.AlphaVantageServiceFactory;
 import com.example.martin.myapplication.alphavantage.AlphaVintageService;
 import com.example.martin.myapplication.alphavantage.json.AlphaVantageGlobalQuote;
-import com.example.martin.myapplication.storio.StockUpdateTable;
 import com.example.martin.myapplication.storio.StorIOFactory;
-import com.pushtorefresh.storio.sqlite.queries.Query;
 import com.trello.rxlifecycle2.components.support.RxAppCompatActivity;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
-import hu.akarnokd.rxjava.interop.RxJavaInterop;
+import io.reactivex.MaybeSource;
 import io.reactivex.Observable;
-import io.reactivex.Single;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.BiFunction;
@@ -40,7 +39,6 @@ import twitter4j.StallWarning;
 import twitter4j.Status;
 import twitter4j.StatusDeletionNotice;
 import twitter4j.StatusListener;
-import twitter4j.Twitter;
 import twitter4j.TwitterStream;
 import twitter4j.TwitterStreamFactory;
 import twitter4j.conf.Configuration;
@@ -213,76 +211,19 @@ public class MainActivity extends RxAppCompatActivity {
         Observable.just("Please use this app responsibly!")
                 .subscribe(s -> helloText.setText(s));
 
-        Configuration twitterConfiguration = initTwitter();
-        FilterQuery twitterFilterQuery = getTwitterFilterQuery();
-        final String[] trackingKeywords = { "twitter", "google", "apple" };
-
-        BiFunction<Long, String, Observable<AlphaVantageGlobalQuote>> getTickerData = initAlphaVantage();
-        /*
-        BiFunction<Long, String, Observable<AlphaVantageGlobalQuote>> getTickerData =
-            (integer, s) ->
-                    Observable
-                            .<AlphaVantageGlobalQuote>error(
-                                    new RuntimeException("Crash")
-                            );
-        */
-
         log("creating main observable");
         Observable.merge(
-            // region merge ticker data obtention
-            Observable.merge(
-                Observable.combineLatest(
-                    Observable.interval(0, 1, TimeUnit.MINUTES),
-                    Observable.just("GOOG"),
-                    getTickerData
-                )
-                    .doOnNext(r -> log("combineLatest 1 molesting"))
-                    .doOnDispose(() -> log("combineLatest 1 disposed")),
-
-                Observable.combineLatest(
-                    Observable.interval(0, 1, TimeUnit.MINUTES),
-                    Observable.just("TWTR"),
-                    getTickerData
-                )
-                   .doOnNext(r -> log("combineLatest 2 molesting"))
-                   .doOnDispose(() -> log("combineLatest 2 disposed")),
-
-
-                Observable.combineLatest(
-                    Observable.interval(0, 1, TimeUnit.MINUTES),
-                    Observable.just("AAPL"),
-                    getTickerData
-                )
-                   .doOnNext(r -> log("combineLatest 3 molesting"))
-                   .doOnDispose(() -> log("combineLatest 3 disposed"))
-        )
-            .flatMap(r -> r)
-            .map(AlphaVantageGlobalQuote::getQuote)
-            .map(StockUpdate::create)
-            .groupBy(r -> r.getStockSymbol())
-            .flatMap(r -> r.distinctUntilChanged())
-
-        // endregion
-                ,
-            observeTwitterStream(twitterConfiguration, twitterFilterQuery)
-                .sample(2700, TimeUnit.MILLISECONDS)
-                .map(StockUpdate::create)
-                .flatMapMaybe(r ->
-                    Observable
-                        .fromArray(trackingKeywords)
-                        .filter(keyword ->
-                            r.getTwitterStatus().toLowerCase().contains(keyword)
-                        )
-                        .map(keyword -> r)
-                        .firstElement()
-                )
-
+            createFinancialStockUpdateObservable(
+                    Arrays.asList("GOOG", "TWTR", "AAPL")
+            ),
+            createTweetStockUpdateObservable(
+                    initTwitter(),
+                    getTwitterFilterQuery(),
+                    Arrays.asList("twitter", "google", "apple")
+            )
         )
                 .doOnDispose(() -> log("merge disposed"))
                 .compose(bindToLifecycle())
-                /*.flatMap(r ->
-                    Observable.<Observable<AlphaVantageGlobalQuote>>error(new RuntimeException("Crash"))
-                )*/
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnError(error -> {
@@ -291,32 +232,9 @@ public class MainActivity extends RxAppCompatActivity {
                             .show();
                 })
                 .observeOn(Schedulers.io())
-                // no more need because we use groupBy operator
-                // and distinctUntilChanged
-                //.filter(r -> !stockDataAdapter.contains(r))
                 .doOnNext(this::saveStockUpdate)
-                // region local database retrieving when not internet
-                .onExceptionResumeNext(
-                    v2(StorIOFactory
-                        .get(this)
-                        .get()
-                        .listOfObjects(StockUpdate.class)
-                        .withQuery(Query.builder()
-                            .table(StockUpdateTable.TABLE)
-                            .orderBy("date DESC")
-                            .limit(50)
-                            .build())
-                        .prepare()
-                        .asRxObservable())
-                        .take(1)
-                        .flatMap(Observable::fromIterable)
-                )
-                // endregion
+                .onExceptionResumeNext(StorIOFactory.createLocalDbStockUpdateRetrievalObservable(this))
                 .observeOn(AndroidSchedulers.mainThread())
-                // uncomment this to test errors
-                /*.doOnNext(r -> {
-                    throw new RuntimeException();
-                })*/
                 .subscribe(
                     stockUpdate -> {
                         Log.d(TAG, "New update" + stockUpdate.getStockSymbol());
@@ -392,8 +310,63 @@ public class MainActivity extends RxAppCompatActivity {
         // endregion
     }
 
-    private static <T> Observable<T> v2(rx.Observable<T> source) {
-        return RxJavaInterop.toV2Observable(source);
+    private Observable<StockUpdate> createTweetStockUpdateObservable(
+            Configuration twitterConfiguration,
+            FilterQuery twitterFilterQuery,
+            List<String> trackingKeywords
+    ) {
+        return observeTwitterStream(twitterConfiguration, twitterFilterQuery)
+                .sample(2700, TimeUnit.MILLISECONDS)
+                .map(StockUpdate::create)
+                .flatMapMaybe(filterTweetsBasedOnKeywords(trackingKeywords));
+
+    }
+
+    @android.support.annotation.NonNull
+    private Function<StockUpdate, MaybeSource<? extends StockUpdate>> filterTweetsBasedOnKeywords(List<String> trackingKeywords) {
+        return r ->
+            Observable
+                .fromIterable(trackingKeywords)
+                .filter(keyword ->
+                    r.getTwitterStatus().toLowerCase().contains(keyword)
+                )
+                .map(keyword -> r)
+                .firstElement();
+    }
+
+    private Observable<StockUpdate> createFinancialStockUpdateObservable(List<String> tickers) {
+        List<Observable<Observable<AlphaVantageGlobalQuote>>> stockObservables = new ArrayList<>();
+        tickers.forEach(
+            ticker -> stockObservables.add(
+                createObservableRetrieveStockData(ticker)
+            )
+        );
+        return Observable
+            .merge(stockObservables)
+            .flatMap(r -> r)
+            .map(AlphaVantageGlobalQuote::getQuote)
+            .map(StockUpdate::create)
+            .groupBy(r -> r.getStockSymbol())
+            .flatMap(r -> r.distinctUntilChanged());
+    }
+
+    private Observable<Observable<AlphaVantageGlobalQuote>> createObservableRetrieveStockData(
+            String tickerSymbol
+    ) {
+        BiFunction<Long, String, Observable<AlphaVantageGlobalQuote>> getTickerData = initAlphaVantage();
+        /*
+        BiFunction<Long, String, Observable<AlphaVantageGlobalQuote>> getTickerData =
+            (integer, s) ->
+                    Observable
+                            .<AlphaVantageGlobalQuote>error(
+                                    new RuntimeException("Crash")
+                            );
+        */
+        return Observable.combineLatest(
+            Observable.interval(0, 1, TimeUnit.MINUTES),
+            Observable.just(tickerSymbol),
+            getTickerData
+        );
     }
 
     private void log(String tag, String text) {
