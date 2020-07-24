@@ -215,6 +215,7 @@ public class MainActivity extends RxAppCompatActivity {
 
         Configuration twitterConfiguration = initTwitter();
         FilterQuery twitterFilterQuery = getTwitterFilterQuery();
+        final String[] trackingKeywords = { "twitter", "google", "apple" };
 
         BiFunction<Long, String, Observable<AlphaVantageGlobalQuote>> getTickerData = initAlphaVantage();
         /*
@@ -256,16 +257,25 @@ public class MainActivity extends RxAppCompatActivity {
                    .doOnDispose(() -> log("combineLatest 3 disposed"))
         )
             .flatMap(r -> r)
-            .groupBy(r -> r.getQuote().getSymbol())
-            .flatMap(r -> r.distinctUntilChanged())
             .map(AlphaVantageGlobalQuote::getQuote)
             .map(StockUpdate::create)
+            .groupBy(r -> r.getStockSymbol())
+            .flatMap(r -> r.distinctUntilChanged())
 
         // endregion
                 ,
             observeTwitterStream(twitterConfiguration, twitterFilterQuery)
                 .sample(2700, TimeUnit.MILLISECONDS)
                 .map(StockUpdate::create)
+                .flatMapMaybe(r ->
+                    Observable
+                        .fromArray(trackingKeywords)
+                        .filter(keyword ->
+                            r.getTwitterStatus().toLowerCase().contains(keyword)
+                        )
+                        .map(keyword -> r)
+                        .firstElement()
+                )
 
         )
                 .doOnDispose(() -> log("merge disposed"))
