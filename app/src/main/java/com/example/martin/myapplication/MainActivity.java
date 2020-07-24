@@ -45,6 +45,8 @@ import twitter4j.TwitterStreamFactory;
 import twitter4j.conf.Configuration;
 import twitter4j.conf.ConfigurationBuilder;
 
+import static com.example.martin.myapplication.storio.LocalItemPersistenceHandlingTransformer.addLocalItemPersistenceHandling;
+
 public class MainActivity extends RxAppCompatActivity {
 
     private static final String TAG = "MainActivity";
@@ -227,7 +229,7 @@ public class MainActivity extends RxAppCompatActivity {
                 .compose(bindToLifecycle())
                 .subscribeOn(Schedulers.io())
                 .compose(addUiErrorHandling())
-                .compose(addLocalItemPersistenceHandling())
+                .compose(addLocalItemPersistenceHandling(this))
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
                     stockUpdate -> {
@@ -311,12 +313,6 @@ public class MainActivity extends RxAppCompatActivity {
                 .observeOn(Schedulers.io());
     }
 
-    private ObservableTransformer<StockUpdate, StockUpdate> addLocalItemPersistenceHandling() {
-        return upstream -> upstream
-                .doOnNext(this::saveStockUpdate)
-                .onExceptionResumeNext(StorIOFactory.createLocalDbStockUpdateRetrievalObservable(this));
-    }
-
     @android.support.annotation.NonNull
     private Consumer<Throwable> showToastErrorNotificationMethod() {
         return error -> {
@@ -391,16 +387,6 @@ public class MainActivity extends RxAppCompatActivity {
 
     private void log(String text) {
         Log.d(TAG, text);
-    }
-
-    private void saveStockUpdate(StockUpdate stockUpdate) {
-        log("saveStockUpdate", stockUpdate.getStockSymbol());
-        StorIOFactory.get(this)
-                .put()
-                .object(stockUpdate)
-                .prepare()
-                .asRxSingle()
-                .subscribe();
     }
 
     @OnClick(R.id.start_another_activity_button)
