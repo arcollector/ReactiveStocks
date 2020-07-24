@@ -256,6 +256,8 @@ public class MainActivity extends RxAppCompatActivity {
                    .doOnDispose(() -> log("combineLatest 3 disposed"))
         )
             .flatMap(r -> r)
+            .groupBy(r -> r.getQuote().getSymbol())
+            .flatMap(r -> r.distinctUntilChanged())
             .map(AlphaVantageGlobalQuote::getQuote)
             .map(StockUpdate::create)
 
@@ -279,7 +281,9 @@ public class MainActivity extends RxAppCompatActivity {
                             .show();
                 })
                 .observeOn(Schedulers.io())
-                .filter(r -> !stockDataAdapter.contains(r))
+                // no more need because we use groupBy operator
+                // and distinctUntilChanged
+                //.filter(r -> !stockDataAdapter.contains(r))
                 .doOnNext(this::saveStockUpdate)
                 // region local database retrieving when not internet
                 .onExceptionResumeNext(
