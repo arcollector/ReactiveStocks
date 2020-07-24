@@ -14,6 +14,8 @@ import io.reactivex.Observable;
 import io.reactivex.subjects.BehaviorSubject;
 import io.reactivex.subjects.Subject;
 
+import static com.example.martin.myapplication.LoggerTransformer.debugLog;
+
 /**
  * Created by martin on 7/24/20.
  */
@@ -24,18 +26,26 @@ public class Settings {
 
     private Subject<List<String>> keywordsSubject = BehaviorSubject.create();
     private Subject<List<String>> symbolsSubject = BehaviorSubject.create();
+    /**
+     * Hint: Keep a strong reference on your RxSharedPreferences
+     * instance for as long as you want to observe them to prevent
+     * listeners from being GCed.
+     */
+    private final RxSharedPreferences rxPreferences;
 
     private Settings(Context context) {
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
-        RxSharedPreferences rxPreferences = RxSharedPreferences.create(preferences);
+        rxPreferences = RxSharedPreferences.create(preferences);
 
         rxPreferences.getString("pref_keywords", "").asObservable()
+                .compose(debugLog("pref_keywords"))
                 .filter(v -> !v.isEmpty())
                 .map(value -> value.split(" "))
                 .map(Arrays::asList)
                 .subscribe(keywordsSubject);
 
         rxPreferences.getString("pref_symbols", "").asObservable()
+                .compose(debugLog("pref_symbols"))
                 .filter(v -> !v.isEmpty())
                 .map(String::toUpperCase)
                 .map(value -> value.split(" "))

@@ -179,9 +179,9 @@ public class MainActivity extends RxAppCompatActivity {
         return configuration;
     }
 
-    private FilterQuery getTwitterFilterQuery() {
+    private FilterQuery getTwitterFilterQuery(List<String> keywords) {
         return new FilterQuery()
-                .track("Twitter", "Google", "Apple")
+                .track(keywords.toArray(new String[0]))
                 .language("en");
     }
 
@@ -218,17 +218,27 @@ public class MainActivity extends RxAppCompatActivity {
         Observable.just("Please use this app responsibly!")
                 .subscribe(s -> helloText.setText(s));
 
+        final Settings settings = Settings.get(this.getApplicationContext());
+
         log("creating main observable");
         Observable.merge(
-            createFinancialStockUpdateObservable(
-                Arrays.asList("GOOG", "TWTR", "AAPL")
-            ),
-            createTweetStockUpdateObservable(
-                initTwitter(),
-                getTwitterFilterQuery(),
-                Arrays.asList("twitter", "google", "apple")
+            settings.getMonitoredSymbols()
+                .compose(debugLog("getMonitoredSymbols"))
+                .switchMap(symbols ->
+                    createFinancialStockUpdateObservable(symbols)
+                )
+            ,
+            settings.getMonitoredKeywords()
+                .switchMap(keywords ->
+                    createTweetStockUpdateObservable(
+                        initTwitter(),
+                        getTwitterFilterQuery(keywords),
+                        keywords
+                    )
             )
         )
+            //.groupBy(r -> r.getStockSymbol())
+            //.flatMap(r -> r.distinctUntilChanged())
             .compose(debugLog("MAIN OBSERVABLE"))
             .compose(bindToLifecycle())
             .subscribeOn(Schedulers.io())
@@ -361,9 +371,7 @@ public class MainActivity extends RxAppCompatActivity {
             .merge(stockObservables)
             .flatMap(r -> r)
             .map(AlphaVantageGlobalQuote::getQuote)
-            .map(StockUpdate::create)
-            .groupBy(r -> r.getStockSymbol())
-            .flatMap(r -> r.distinctUntilChanged());
+            .map(StockUpdate::create);
     }
 
     private Observable<Observable<AlphaVantageGlobalQuote>> createObservableRetrieveStockData(
@@ -462,4 +470,5 @@ public class MainActivity extends RxAppCompatActivity {
 
         }
     }
+
 }
