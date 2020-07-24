@@ -26,6 +26,7 @@ import butterknife.ButterKnife;
 import butterknife.OnClick;
 import hu.akarnokd.rxjava.interop.RxJavaInterop;
 import io.reactivex.Observable;
+import io.reactivex.Single;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.BiFunction;
@@ -254,7 +255,8 @@ public class MainActivity extends RxAppCompatActivity {
                    .doOnNext(r -> log("combineLatest 3 molesting"))
                    .doOnDispose(() -> log("combineLatest 3 disposed"))
         )
-            .map(r -> r.blockingSingle().getQuote())
+            .flatMap(r -> r)
+            .map(AlphaVantageGlobalQuote::getQuote)
             .map(StockUpdate::create)
 
         // endregion
