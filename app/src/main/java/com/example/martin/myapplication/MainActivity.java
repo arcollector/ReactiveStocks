@@ -130,33 +130,34 @@ public class MainActivity extends RxAppCompatActivity {
                 .get(s, apiKey)
                 .toObservable();
 
+        log("creating main observable");
         Observable.merge(
             Observable.combineLatest(
                     Observable.interval(0, 1, TimeUnit.MINUTES),
                     Observable.just("GOOG"),
                     getTickerData
-            ),
-            //        .doOnNext(r -> log("zip 1 molesting"))
-            //        .doOnDispose(() -> log("zip1 disposed")),
+            )
+                    .doOnNext(r -> log("combineLatest 1 molesting"))
+                    .doOnDispose(() -> log("combineLatest 1 disposed")),
 
             Observable.combineLatest(
                     Observable.interval(0, 1, TimeUnit.MINUTES),
                     Observable.just("TWTR"),
                     getTickerData
-            ),
-                //       .doOnNext(r -> log("zip 2 molesting"))
-                //        .doOnDispose(() -> log("zip2 disposed")),
+            )
+                       .doOnNext(r -> log("combineLatest 2 molesting"))
+                       .doOnDispose(() -> log("combineLatest 2 disposed")),
 
             Observable.combineLatest(
                     Observable.interval(0, 1, TimeUnit.MINUTES),
                     Observable.just("AAPL"),
                     getTickerData
             )
-                    //        .doOnNext(r -> log("zip 3 molesting"))
-                //       .doOnDispose(() -> log("zip3 disposed"))
+                       .doOnNext(r -> log("combineLatest 3 molesting"))
+                       .doOnDispose(() -> log("combineLatest 3 disposed"))
         )
+                .doOnDispose(() -> log("merge disposed"))
                 .compose(bindToLifecycle())
-                .doOnDispose(() -> log("concat disposed"))
                 /*.flatMap(r ->
                     Observable.<Observable<AlphaVantageGlobalQuote>>error(new RuntimeException("Crash"))
                 )*/
