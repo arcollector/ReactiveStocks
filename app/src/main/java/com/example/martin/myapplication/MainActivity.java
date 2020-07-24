@@ -45,6 +45,7 @@ import twitter4j.TwitterStreamFactory;
 import twitter4j.conf.Configuration;
 import twitter4j.conf.ConfigurationBuilder;
 
+import static com.example.martin.myapplication.LoggerTransformer.debugLog;
 import static com.example.martin.myapplication.storio.LocalItemPersistenceHandlingTransformer.addLocalItemPersistenceHandling;
 
 public class MainActivity extends RxAppCompatActivity {
@@ -225,7 +226,7 @@ public class MainActivity extends RxAppCompatActivity {
                     Arrays.asList("twitter", "google", "apple")
             )
         )
-                .doOnDispose(() -> log("merge disposed"))
+                .compose(debugLog("MAIN OBSERVABLE"))
                 .compose(bindToLifecycle())
                 .subscribeOn(Schedulers.io())
                 .compose(addUiErrorHandling())
