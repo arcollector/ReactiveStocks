@@ -279,6 +279,7 @@ public class MainActivity extends RxAppCompatActivity {
                             .show();
                 })
                 .observeOn(Schedulers.io())
+                .filter(r -> !stockDataAdapter.contains(r))
                 .doOnNext(this::saveStockUpdate)
                 // region local database retrieving when not internet
                 .onExceptionResumeNext(
