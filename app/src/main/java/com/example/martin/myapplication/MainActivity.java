@@ -20,6 +20,7 @@ import com.example.martin.myapplication.storio.StorIOFactory;
 import com.pushtorefresh.storio.sqlite.operations.get.PreparedGetListOfObjects;
 import com.pushtorefresh.storio.sqlite.operations.internal.RxJavaUtils;
 import com.pushtorefresh.storio.sqlite.queries.Query;
+import com.trello.rxlifecycle2.components.support.RxAppCompatActivity;
 
 import java.util.Arrays;
 import java.util.List;
@@ -40,7 +41,7 @@ import io.reactivex.functions.Function;
 import io.reactivex.plugins.RxJavaPlugins;
 import io.reactivex.schedulers.Schedulers;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends RxAppCompatActivity {
 
     private static final String TAG = "MainActivity";
 
@@ -138,27 +139,35 @@ public class MainActivity extends AppCompatActivity {
                 .toObservable();
 
         Observable.concat(
-            Observable.zip(
+            Observable.combineLatest(
                     Observable.interval(0, 1, TimeUnit.MINUTES),
                     Observable.just("GOOG"),
                     getTickerData
-            ),
+            )
+                    .doOnNext(r -> log("zip 1 molesting"))
+                    .doOnDispose(() -> log("zip1 disposed")),
 
-            Observable.zip(
+            Observable.combineLatest(
                     Observable.interval(0, 1, TimeUnit.MINUTES),
                     Observable.just("TWTR"),
                     getTickerData
-            ),
+            )
+                    .doOnNext(r -> log("zip 2 molesting"))
+                    .doOnDispose(() -> log("zip2 disposed")),
 
-            Observable.zip(
-                    Observable.interval(0, 1, TimeUnit.MINUTES),
+            Observable.combineLatest(
+                    Observable.interval(0, 10, TimeUnit.MINUTES),
                     Observable.just("AAPL"),
                     getTickerData
             )
+                    .doOnNext(r -> log("zip 3 molesting"))
+                    .doOnDispose(() -> log("zip3 disposed"))
         )
-                .flatMap(r ->
+                .compose(bindToLifecycle())
+                .doOnDispose(() -> log("concat disposed"))
+                /*.flatMap(r ->
                     Observable.<Observable<AlphaVantageGlobalQuote>>error(new RuntimeException("Crash"))
-                )
+                )*/
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnError(error -> {
@@ -283,6 +292,6 @@ public class MainActivity extends AppCompatActivity {
 
     @OnClick(R.id.start_another_activity_button)
     public void onStartAnotherActivityButtonClikc(Button button) {
-        startActivity(new Intent(this, MockActivity.class));
+        startActivity(new Intent(this, ExampleLifecycleActivity.class));
     }
 }

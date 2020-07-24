@@ -35,7 +35,11 @@ dependencies {
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
-    compile 'com.android.support:appcompat-v7:25.3.1'
+    compile ('com.android.support:appcompat-v7:25.3.1') {
+        // needed because of com.trello.rxlifecycle2:rxlifecycle:2.2.2
+        force = true
+    }
+
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
     testCompile 'junit:junit:4.12'
 
@@ -61,4 +65,8 @@ dependencies {
     compile 'com.pushtorefresh.storio:sqlite:1.12.1'
     compile 'com.pushtorefresh.storio:content-resolver-annotations:1.12.1'
     annotationProcessor 'com.pushtorefresh.storio:sqlite-annotations-processor:1.12.1'
+
+    compile 'com.trello.rxlifecycle2:rxlifecycle:2.2.2'
+    compile 'com.trello.rxlifecycle2:rxlifecycle-android:2.2.2'
+    compile 'com.trello.rxlifecycle2:rxlifecycle-components:2.2.2'
 }
