@@ -19,6 +19,9 @@ android {
         exclude "META-INF/rxjava.properties"
     }
     buildTypes {
+        debug {
+            buildConfigField "String", "ALPHAVANTAGE_API_KEY", "\"U6EHDPZAEKU4H1QH\""
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

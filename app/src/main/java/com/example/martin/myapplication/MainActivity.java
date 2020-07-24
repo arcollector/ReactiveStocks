@@ -1,7 +1,6 @@
 package com.example.martin.myapplication;
 
 import android.content.Intent;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -14,16 +13,11 @@ import android.widget.Toast;
 import com.example.martin.myapplication.alphavantage.AlphaVantageServiceFactory;
 import com.example.martin.myapplication.alphavantage.AlphaVintageService;
 import com.example.martin.myapplication.alphavantage.json.AlphaVantageGlobalQuote;
-import com.example.martin.myapplication.alphavantage.json.AlphaVantageQuote;
 import com.example.martin.myapplication.storio.StockUpdateTable;
 import com.example.martin.myapplication.storio.StorIOFactory;
-import com.pushtorefresh.storio.sqlite.operations.get.PreparedGetListOfObjects;
-import com.pushtorefresh.storio.sqlite.operations.internal.RxJavaUtils;
 import com.pushtorefresh.storio.sqlite.queries.Query;
 import com.trello.rxlifecycle2.components.support.RxAppCompatActivity;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import butterknife.BindView;
@@ -31,10 +25,8 @@ import butterknife.ButterKnife;
 import butterknife.OnClick;
 import hu.akarnokd.rxjava.interop.RxJavaInterop;
 import io.reactivex.Observable;
-import io.reactivex.ObservableSource;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.annotations.NonNull;
-import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
@@ -131,37 +123,37 @@ public class MainActivity extends RxAppCompatActivity {
 
         AlphaVintageService alphaVintageService = new AlphaVantageServiceFactory().create();
 
-        String apiKey = "U6EHDPZAEKU4H1QH";
+        String apiKey = BuildConfig.ALPHAVANTAGE_API_KEY;
 
         BiFunction<Long, String, Observable<AlphaVantageGlobalQuote>> getTickerData =
             (integer, s) -> alphaVintageService
                 .get(s, apiKey)
                 .toObservable();
 
-        Observable.concat(
+        Observable.merge(
             Observable.combineLatest(
                     Observable.interval(0, 1, TimeUnit.MINUTES),
                     Observable.just("GOOG"),
                     getTickerData
-            )
-                    .doOnNext(r -> log("zip 1 molesting"))
-                    .doOnDispose(() -> log("zip1 disposed")),
+            ),
+            //        .doOnNext(r -> log("zip 1 molesting"))
+            //        .doOnDispose(() -> log("zip1 disposed")),
 
             Observable.combineLatest(
                     Observable.interval(0, 1, TimeUnit.MINUTES),
                     Observable.just("TWTR"),
                     getTickerData
-            )
-                    .doOnNext(r -> log("zip 2 molesting"))
-                    .doOnDispose(() -> log("zip2 disposed")),
+            ),
+                //       .doOnNext(r -> log("zip 2 molesting"))
+                //        .doOnDispose(() -> log("zip2 disposed")),
 
             Observable.combineLatest(
-                    Observable.interval(0, 10, TimeUnit.MINUTES),
+                    Observable.interval(0, 1, TimeUnit.MINUTES),
                     Observable.just("AAPL"),
                     getTickerData
             )
-                    .doOnNext(r -> log("zip 3 molesting"))
-                    .doOnDispose(() -> log("zip3 disposed"))
+                    //        .doOnNext(r -> log("zip 3 molesting"))
+                //       .doOnDispose(() -> log("zip3 disposed"))
         )
                 .compose(bindToLifecycle())
                 .doOnDispose(() -> log("concat disposed"))
