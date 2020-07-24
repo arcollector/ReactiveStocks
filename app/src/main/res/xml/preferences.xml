@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <EditTextPreference
+        android:key="pref_symbols"
+        android:summary="Stock symbols to Follow"
+        android:title="Symbols"
+    />
+
+    <EditTextPreference
+        android:key="pref_keywords"
+        android:summary="Twitter keywords to Follow"
+        android:title="Keywords"
+    />
+
+</PreferenceScreen>

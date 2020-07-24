@@ -5,6 +5,9 @@ import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -218,32 +221,32 @@ public class MainActivity extends RxAppCompatActivity {
         log("creating main observable");
         Observable.merge(
             createFinancialStockUpdateObservable(
-                    Arrays.asList("GOOG", "TWTR", "AAPL")
+                Arrays.asList("GOOG", "TWTR", "AAPL")
             ),
             createTweetStockUpdateObservable(
-                    initTwitter(),
-                    getTwitterFilterQuery(),
-                    Arrays.asList("twitter", "google", "apple")
+                initTwitter(),
+                getTwitterFilterQuery(),
+                Arrays.asList("twitter", "google", "apple")
             )
         )
-                .compose(debugLog("MAIN OBSERVABLE"))
-                .compose(bindToLifecycle())
-                .subscribeOn(Schedulers.io())
-                .compose(addUiErrorHandling())
-                .compose(addLocalItemPersistenceHandling(this))
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                    stockUpdate -> {
-                        Log.d(TAG, "New update" + stockUpdate.getStockSymbol());
-                        noDataAvailableView.setVisibility(View.GONE);
-                        stockDataAdapter.add(stockUpdate);
-                    }, throwable -> {
-                        if(stockDataAdapter.getItemCount() == 0) {
-                            noDataAvailableView.setVisibility(View.VISIBLE);
-                        }
-                        /*Log.d(TAG, "error");
-                        Log.d(TAG, throwable.toString());*/
-                    });
+            .compose(debugLog("MAIN OBSERVABLE"))
+            .compose(bindToLifecycle())
+            .subscribeOn(Schedulers.io())
+            .compose(addUiErrorHandling())
+            .compose(addLocalItemPersistenceHandling(this))
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(
+                stockUpdate -> {
+                    Log.d(TAG, "New update" + stockUpdate.getStockSymbol());
+                    noDataAvailableView.setVisibility(View.GONE);
+                    stockDataAdapter.add(stockUpdate);
+                }, throwable -> {
+                    if(stockDataAdapter.getItemCount() == 0) {
+                        noDataAvailableView.setVisibility(View.VISIBLE);
+                    }
+                    /*Log.d(TAG, "error");
+                    Log.d(TAG, throwable.toString());*/
+                });
 
         // region without merge parent
 /*
@@ -439,5 +442,24 @@ public class MainActivity extends RxAppCompatActivity {
             twitterStream.addListener(listener);
             twitterStream.filter(filterQuery);
         });
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.settings:
+                startActivity(new Intent(this, SettingsActivity.class));
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+
+        }
     }
 }
