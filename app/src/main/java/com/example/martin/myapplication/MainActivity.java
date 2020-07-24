@@ -26,6 +26,7 @@ import butterknife.ButterKnife;
 import butterknife.OnClick;
 import io.reactivex.MaybeSource;
 import io.reactivex.Observable;
+import io.reactivex.ObservableTransformer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.BiFunction;
@@ -225,15 +226,8 @@ public class MainActivity extends RxAppCompatActivity {
                 .doOnDispose(() -> log("merge disposed"))
                 .compose(bindToLifecycle())
                 .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .doOnError(error -> {
-                    log("doOnError", "error");
-                    Toast.makeText(this, "We couldn't reach internet - falling back to local data", Toast.LENGTH_SHORT)
-                            .show();
-                })
-                .observeOn(Schedulers.io())
-                .doOnNext(this::saveStockUpdate)
-                .onExceptionResumeNext(StorIOFactory.createLocalDbStockUpdateRetrievalObservable(this))
+                .compose(addUiErrorHandling())
+                .compose(addLocalItemPersistenceHandling())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
                     stockUpdate -> {
@@ -308,6 +302,28 @@ public class MainActivity extends RxAppCompatActivity {
         });
         */
         // endregion
+    }
+
+    private ObservableTransformer<StockUpdate, StockUpdate> addUiErrorHandling() {
+        return upstream -> upstream
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnError(showToastErrorNotificationMethod())
+                .observeOn(Schedulers.io());
+    }
+
+    private ObservableTransformer<StockUpdate, StockUpdate> addLocalItemPersistenceHandling() {
+        return upstream -> upstream
+                .doOnNext(this::saveStockUpdate)
+                .onExceptionResumeNext(StorIOFactory.createLocalDbStockUpdateRetrievalObservable(this));
+    }
+
+    @android.support.annotation.NonNull
+    private Consumer<Throwable> showToastErrorNotificationMethod() {
+        return error -> {
+            log("doOnError", "error");
+            Toast.makeText(this, "We couldn't reach internet - falling back to local data", Toast.LENGTH_SHORT)
+                    .show();
+        };
     }
 
     private Observable<StockUpdate> createTweetStockUpdateObservable(
