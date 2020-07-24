@@ -21,6 +21,10 @@ android {
     buildTypes {
         debug {
             buildConfigField "String", "ALPHAVANTAGE_API_KEY", "\"U6EHDPZAEKU4H1QH\""
+            buildConfigField "String", "TWITTER_CONSUMER_API_KEY", "\"fiNc0iIRaYqX8Kttyh2qqYwQX\""
+            buildConfigField "String", "TWITTER_CONSUMER_API_SECRET_KEY", "\"IIlCKC7pTWcsXm0CX4MXibGG3pGzIEgCpk2Hn73hf89aa2oTKO\""
+            buildConfigField "String", "TWITTER_ACCESS_TOKEN", "\"1159998970246115328-AyjvxgkdeOk7chqEG5qTNLOh3WdcZx\""
+            buildConfigField "String", "TWITTER_ACCESS_TOKEN_SECRET", "\"daMueuFypeeAU8arP6WzshsBTAu7PR2hSjwaPTC6CZmtM\""
         }
         release {
             minifyEnabled false
@@ -72,4 +76,7 @@ dependencies {
     compile 'com.trello.rxlifecycle2:rxlifecycle:2.2.2'
     compile 'com.trello.rxlifecycle2:rxlifecycle-android:2.2.2'
     compile 'com.trello.rxlifecycle2:rxlifecycle-components:2.2.2'
+
+    compile 'org.twitter4j:twitter4j-core:4.0.6'
+    compile 'org.twitter4j:twitter4j-stream:4.0.6'
 }

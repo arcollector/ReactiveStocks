@@ -18,6 +18,7 @@ import com.example.martin.myapplication.storio.StorIOFactory;
 import com.pushtorefresh.storio.sqlite.queries.Query;
 import com.trello.rxlifecycle2.components.support.RxAppCompatActivity;
 
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import butterknife.BindView;
@@ -32,6 +33,17 @@ import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.plugins.RxJavaPlugins;
 import io.reactivex.schedulers.Schedulers;
+
+import twitter4j.FilterQuery;
+import twitter4j.StallWarning;
+import twitter4j.Status;
+import twitter4j.StatusDeletionNotice;
+import twitter4j.StatusListener;
+import twitter4j.Twitter;
+import twitter4j.TwitterStream;
+import twitter4j.TwitterStreamFactory;
+import twitter4j.conf.Configuration;
+import twitter4j.conf.ConfigurationBuilder;
 
 public class MainActivity extends RxAppCompatActivity {
 
@@ -101,6 +113,85 @@ public class MainActivity extends RxAppCompatActivity {
                 .subscribe(e -> Log.d(TAG, "Hello " + e));
     }
 
+    private Configuration initTwitter() {
+        /*
+        StatusListener listener = new StatusListener() {
+
+            @Override
+            public void onException(Exception ex) {
+                Log.d("TWITTER", "onException!");
+                ex.printStackTrace();
+            }
+
+            @Override
+            public void onStatus(Status status) {
+                Log.d("TWITTER", status.getUser().getName() + " : " + status.getText());
+            }
+
+            @Override
+            public void onDeletionNotice(StatusDeletionNotice statusDeletionNotice) {
+
+            }
+
+            @Override
+            public void onTrackLimitationNotice(int numberOfLimitedStatuses) {
+
+            }
+
+            @Override
+            public void onScrubGeo(long userId, long upToStatusId) {
+
+            }
+
+            @Override
+            public void onStallWarning(StallWarning warning) {
+
+            }
+        };
+        */
+
+        Configuration configuration = new ConfigurationBuilder()
+                .setDebugEnabled(true)
+                .setOAuthConsumerKey(BuildConfig.TWITTER_CONSUMER_API_KEY)
+                .setOAuthConsumerSecret(BuildConfig.TWITTER_CONSUMER_API_SECRET_KEY)
+                .setOAuthAccessToken(BuildConfig.TWITTER_ACCESS_TOKEN)
+                .setOAuthAccessTokenSecret(BuildConfig.TWITTER_ACCESS_TOKEN_SECRET)
+                .build();
+
+        /*
+        TwitterStream twitterStream = new TwitterStreamFactory(configuration)
+                .getInstance();
+        twitterStream.addListener(listener);
+        twitterStream.filter();
+        twitterStream.filter(
+                new FilterQuery()
+                        .track("Twitter", "Google", "Apple")
+                        .language("en")
+        );
+        */
+
+        return configuration;
+    }
+
+    private FilterQuery getTwitterFilterQuery() {
+        return new FilterQuery()
+                .track("Twitter", "Google", "Apple")
+                .language("en");
+    }
+
+    private BiFunction<Long, String, Observable<AlphaVantageGlobalQuote>> initAlphaVantage() {
+        AlphaVintageService alphaVintageService = new AlphaVantageServiceFactory().create();
+
+        String alphavantageApiKey = BuildConfig.ALPHAVANTAGE_API_KEY;
+
+        BiFunction<Long, String, Observable<AlphaVantageGlobalQuote>> getTickerData =
+                (integer, s) -> alphaVintageService
+                        .get(s, alphavantageApiKey)
+                        .toObservable();
+
+        return getTickerData;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -121,40 +212,57 @@ public class MainActivity extends RxAppCompatActivity {
         Observable.just("Please use this app responsibly!")
                 .subscribe(s -> helloText.setText(s));
 
-        AlphaVintageService alphaVintageService = new AlphaVantageServiceFactory().create();
+        Configuration twitterConfiguration = initTwitter();
+        FilterQuery twitterFilterQuery = getTwitterFilterQuery();
 
-        String apiKey = BuildConfig.ALPHAVANTAGE_API_KEY;
-
+        BiFunction<Long, String, Observable<AlphaVantageGlobalQuote>> getTickerData = initAlphaVantage();
+        /*
         BiFunction<Long, String, Observable<AlphaVantageGlobalQuote>> getTickerData =
-            (integer, s) -> alphaVintageService
-                .get(s, apiKey)
-                .toObservable();
+            (integer, s) ->
+                    Observable
+                            .<AlphaVantageGlobalQuote>error(
+                                    new RuntimeException("Crash")
+                            );
+        */
 
         log("creating main observable");
         Observable.merge(
-            Observable.combineLatest(
+            // region merge ticker data obtention
+            Observable.merge(
+                Observable.combineLatest(
                     Observable.interval(0, 1, TimeUnit.MINUTES),
                     Observable.just("GOOG"),
                     getTickerData
-            )
+                )
                     .doOnNext(r -> log("combineLatest 1 molesting"))
                     .doOnDispose(() -> log("combineLatest 1 disposed")),
 
-            Observable.combineLatest(
+                Observable.combineLatest(
                     Observable.interval(0, 1, TimeUnit.MINUTES),
                     Observable.just("TWTR"),
                     getTickerData
-            )
-                       .doOnNext(r -> log("combineLatest 2 molesting"))
-                       .doOnDispose(() -> log("combineLatest 2 disposed")),
+                )
+                   .doOnNext(r -> log("combineLatest 2 molesting"))
+                   .doOnDispose(() -> log("combineLatest 2 disposed")),
 
-            Observable.combineLatest(
+
+                Observable.combineLatest(
                     Observable.interval(0, 1, TimeUnit.MINUTES),
                     Observable.just("AAPL"),
                     getTickerData
-            )
-                       .doOnNext(r -> log("combineLatest 3 molesting"))
-                       .doOnDispose(() -> log("combineLatest 3 disposed"))
+                )
+                   .doOnNext(r -> log("combineLatest 3 molesting"))
+                   .doOnDispose(() -> log("combineLatest 3 disposed"))
+        )
+            .map(r -> r.blockingSingle().getQuote())
+            .map(StockUpdate::create)
+
+        // endregion
+                ,
+            observeTwitterStream(twitterConfiguration, twitterFilterQuery)
+                .sample(2700, TimeUnit.MILLISECONDS)
+                .map(StockUpdate::create)
+
         )
                 .doOnDispose(() -> log("merge disposed"))
                 .compose(bindToLifecycle())
@@ -169,9 +277,8 @@ public class MainActivity extends RxAppCompatActivity {
                             .show();
                 })
                 .observeOn(Schedulers.io())
-                .map(r -> r.blockingSingle().getQuote())
-                .map(StockUpdate::create)
                 .doOnNext(this::saveStockUpdate)
+                // region local database retrieving when not internet
                 .onExceptionResumeNext(
                     v2(StorIOFactory
                         .get(this)
@@ -187,6 +294,7 @@ public class MainActivity extends RxAppCompatActivity {
                         .take(1)
                         .flatMap(Observable::fromIterable)
                 )
+                // endregion
                 .observeOn(AndroidSchedulers.mainThread())
                 // uncomment this to test errors
                 /*.doOnNext(r -> {
@@ -204,10 +312,12 @@ public class MainActivity extends RxAppCompatActivity {
                         /*Log.d(TAG, "error");
                         Log.d(TAG, throwable.toString());*/
                     });
+
+        // region without merge parent
 /*
         Disposable google = Observable.interval(0, 1, TimeUnit.MINUTES)
                 .flatMap(
-                        i -> alphaVintageService.get("GOOG", apiKey).toObservable()
+                        i -> alphaVintageService.get("GOOG", alphavantageApiKey).toObservable()
                 )
                 .subscribeOn(Schedulers.io())
                 .map(r -> Arrays.asList(r.getQuote()))
@@ -222,7 +332,7 @@ public class MainActivity extends RxAppCompatActivity {
 
         Disposable appl = Observable.interval(0, 1, TimeUnit.MINUTES)
                 .flatMap(
-                        i -> alphaVintageService.get("AAPL", apiKey)
+                        i -> alphaVintageService.get("AAPL", alphavantageApiKey)
                                 .toObservable()
                 )
                 .subscribeOn(Schedulers.io())
@@ -237,7 +347,7 @@ public class MainActivity extends RxAppCompatActivity {
 
         Disposable twtr = Observable.interval(0, 1, TimeUnit.MINUTES)
                 .flatMap(
-                        i -> alphaVintageService.get("TWTR", apiKey).toObservable()
+                        i -> alphaVintageService.get("TWTR", alphavantageApiKey).toObservable()
                 )
                 .subscribeOn(Schedulers.io())
                 .map(r -> Arrays.asList(r.getQuote()))
@@ -249,6 +359,9 @@ public class MainActivity extends RxAppCompatActivity {
                     stockDataAdapter.add(stockUpdate);
                 });
 */
+        // endregion
+
+        // region first steps
         /*
         Observable.just(
                 new StockUpdate("GOOGLE", 12.43, new Date()),
@@ -259,6 +372,7 @@ public class MainActivity extends RxAppCompatActivity {
             stockDataAdapter.add(stockUpdate);
         });
         */
+        // endregion
     }
 
     private static <T> Observable<T> v2(rx.Observable<T> source) {
@@ -284,7 +398,53 @@ public class MainActivity extends RxAppCompatActivity {
     }
 
     @OnClick(R.id.start_another_activity_button)
-    public void onStartAnotherActivityButtonClikc(Button button) {
+    public void onStartAnotherActivityButtonClick(Button button) {
         startActivity(new Intent(this, ExampleLifecycleActivity.class));
+    }
+
+    Observable<Status> observeTwitterStream(Configuration configuration, FilterQuery filterQuery) {
+        return Observable.create(emitter -> {
+            final TwitterStream twitterStream = new TwitterStreamFactory(configuration).getInstance();
+
+            emitter.setCancellable(() -> {
+                Schedulers.io().scheduleDirect(() -> twitterStream.cleanUp());
+            });
+
+            StatusListener listener = new StatusListener() {
+                @Override
+                public void onStatus(Status status) {
+                    emitter.onNext(status);
+                }
+
+                @Override
+                public void onDeletionNotice(StatusDeletionNotice statusDeletionNotice) {
+
+                }
+
+                @Override
+                public void onTrackLimitationNotice(int numberOfLimitedStatuses) {
+
+                }
+
+                @Override
+                public void onScrubGeo(long userId, long upToStatusId) {
+
+                }
+
+                @Override
+                public void onStallWarning(StallWarning warning) {
+
+                }
+
+                @Override
+                public void onException(Exception ex) {
+                    Log.d("TWITTER", "fail observerTwitterStream");
+                    ex.printStackTrace();
+                }
+            };
+
+            twitterStream.addListener(listener);
+            twitterStream.filter(filterQuery);
+        });
     }
 }
