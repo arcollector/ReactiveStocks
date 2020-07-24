@@ -1,11 +1,13 @@
 package com.example.martin.myapplication;
 
+import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -25,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import butterknife.OnClick;
 import hu.akarnokd.rxjava.interop.RxJavaInterop;
 import io.reactivex.Observable;
 import io.reactivex.ObservableSource;
@@ -276,5 +279,10 @@ public class MainActivity extends AppCompatActivity {
                 .prepare()
                 .asRxSingle()
                 .subscribe();
+    }
+
+    @OnClick(R.id.start_another_activity_button)
+    public void onStartAnotherActivityButtonClikc(Button button) {
+        startActivity(new Intent(this, MockActivity.class));
     }
 }
